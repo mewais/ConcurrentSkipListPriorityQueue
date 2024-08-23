@@ -11,14 +11,13 @@
 
 namespace CSLPQ
 {
-    template<typename K>
+    template<typename K, int L = 4>
     class Queue
     {
         static_assert(is_comparable<K>::value, "Key type must be totally ordered");
         private:
-            typedef jss::shared_ptr<Node<K>> SPtr;
+            typedef jss::shared_ptr<Node<K, L + 1>> SPtr;
 
-            const uint32_t max_level;
             const uint32_t max_size;
             SPtr head;
             std::atomic<uint32_t> size;
@@ -35,7 +34,7 @@ namespace CSLPQ
             {
                 static std::random_device rd;
                 static std::mt19937 mt(rd());
-                static std::uniform_int_distribution<uint32_t> dist(1, this->max_level + 1);
+                static std::uniform_int_distribution<uint32_t> dist(1, L + 1);
 
                 return dist(mt);
             }
@@ -55,7 +54,7 @@ namespace CSLPQ
                 {
                     retry = false;
                     predecessor = this->head;
-                    for (int64_t level = this->max_level; level >= 0; --level)
+                    for (int64_t level = L; level >= 0; --level)
                     {
                         current = predecessor->GetNextPointer(level);
                         while (current)
@@ -126,7 +125,7 @@ namespace CSLPQ
                 {
                     retry = false;
                     predecessor = this->head;
-                    for (int64_t level = this->max_level; level >= 0; --level)
+                    for (int64_t level = L; level >= 0; --level)
                     {
                         current = predecessor->GetNextPointer(level);
                         if (current)
@@ -168,14 +167,13 @@ namespace CSLPQ
             }
 
         public:
-            explicit Queue(uint32_t max_level = 4, uint32_t max_size = 0) : max_level(max_level), max_size(max_size),
-                           head(new Node<K>(K(), max_level + 1)), size(0)
+            explicit Queue(uint32_t max_size = 0) : max_size(max_size), head(new Node<K, L + 1>(K(), L + 1)), size(0)
             {
             }
 
             Queue(const Queue&) = delete;
 
-            Queue(Queue&& other) noexcept : max_level(other.max_level), max_size(other.max_size), head(other.head),
+            Queue(Queue&& other) noexcept : max_size(other.max_size), head(other.head),
                   size(other.size)
             {
                 other.head = nullptr;
@@ -185,7 +183,6 @@ namespace CSLPQ
 
             Queue& operator=(Queue&& other) noexcept
             {
-                this->max_level = other.max_level;
                 this->max_size = other.max_size;
                 this->head = other.head;
                 this->size = other.size;
@@ -197,9 +194,9 @@ namespace CSLPQ
             {
                 this->Wait();
                 uint32_t new_level = this->GenerateRandomLevel();
-                SPtr new_node(new Node<K>(priority, new_level));
-                std::vector<SPtr> predecessors(this->max_level + 1);
-                std::vector<SPtr> successors(this->max_level + 1);
+                SPtr new_node(new Node<K, L + 1>(priority, new_level));
+                std::vector<SPtr> predecessors(L + 1);
+                std::vector<SPtr> successors(L + 1);
 
                 while (true)
                 {
@@ -271,7 +268,7 @@ namespace CSLPQ
             {
                 static_assert(is_printable<K>::value, "Key type must be printable");
                 std::stringstream ss;
-                uint32_t max = all_levels? this->max_level : 0;
+                uint32_t max = all_levels? L : 0;
                 for (uint32_t level = 0; level <= max; ++level)
                 {
                     if (all_levels)
@@ -305,7 +302,7 @@ namespace CSLPQ
             }
     };
 
-    template<typename K, typename V>
+    template<typename K, typename V, int L = 4>
     class KVQueue
     {
         static_assert(is_comparable<K>::value, "Key type must be totally ordered");
@@ -313,9 +310,8 @@ namespace CSLPQ
                       std::is_default_constructible<V>::value || std::is_fundamental<V>::value, 
                       "Value type must be fundamental, or default constructible, or copy or move constructible");
         private:
-            typedef jss::shared_ptr<KVNode<K, V>> SPtr;
+            typedef jss::shared_ptr<KVNode<K, V, L + 1>> SPtr;
 
-            const uint32_t max_level;
             const uint32_t max_size;
             SPtr head;
             std::atomic<uint32_t> size;
@@ -332,7 +328,7 @@ namespace CSLPQ
             {
                 static std::random_device rd;
                 static std::mt19937 mt(rd());
-                static std::uniform_int_distribution<uint32_t> dist(1, this->max_level + 1);
+                static std::uniform_int_distribution<uint32_t> dist(1, L + 1);
 
                 return dist(mt);
             }
@@ -352,7 +348,7 @@ namespace CSLPQ
                 {
                     retry = false;
                     predecessor = this->head;
-                    for (int64_t level = this->max_level; level >= 0; --level)
+                    for (int64_t level = L; level >= 0; --level)
                     {
                         current = predecessor->GetNextPointer(level);
                         while (current)
@@ -423,7 +419,7 @@ namespace CSLPQ
                 {
                     retry = false;
                     predecessor = this->head;
-                    for (int64_t level = this->max_level; level >= 0; --level)
+                    for (int64_t level = L; level >= 0; --level)
                     {
                         current = predecessor->GetNextPointer(level);
                         if (current)
@@ -465,14 +461,13 @@ namespace CSLPQ
             }
 
         public:
-            KVQueue(uint32_t max_level = 4, uint32_t max_size = 0) : max_level(max_level), max_size(max_size),
-                    head(new KVNode<K, V>(K(), max_level + 1)), size(0)
+            KVQueue(uint32_t max_size = 0) : max_size(max_size), head(new KVNode<K, V, L + 1>(K(), L + 1)), size(0)
             {
             }
 
             KVQueue(const KVQueue&) = delete;
 
-            KVQueue(KVQueue&& other)  noexcept : max_level(other.max_level), max_size(other.max_size), head(other.head),
+            KVQueue(KVQueue&& other)  noexcept : max_size(other.max_size), head(other.head),
                     size(other.size)
             {
                 other.head = nullptr;
@@ -483,7 +478,6 @@ namespace CSLPQ
 
             KVQueue& operator=(KVQueue&& other) noexcept
             {
-                this->max_level = other.max_level;
                 this->max_size = other.max_size;
                 this->head = other.head;
                 this->size = other.size;
@@ -496,9 +490,9 @@ namespace CSLPQ
             {
                 this->Wait();
                 uint32_t new_level = this->GenerateRandomLevel();
-                SPtr new_node(new KVNode<K, V>(priority, new_level));
-                std::vector<SPtr> predecessors(this->max_level + 1);
-                std::vector<SPtr> successors(this->max_level + 1);
+                SPtr new_node(new KVNode<K, V, L + 1>(priority, new_level));
+                std::vector<SPtr> predecessors(L + 1);
+                std::vector<SPtr> successors(L + 1);
 
                 while (true)
                 {
@@ -532,9 +526,9 @@ namespace CSLPQ
             {
                 this->Wait();
                 uint32_t new_level = this->GenerateRandomLevel();
-                SPtr new_node(new KVNode<K, V>(priority, data, new_level));
-                std::vector<SPtr> predecessors(this->max_level + 1);
-                std::vector<SPtr> successors(this->max_level + 1);
+                SPtr new_node(new KVNode<K, V, L + 1>(priority, data, new_level));
+                std::vector<SPtr> predecessors(L + 1);
+                std::vector<SPtr> successors(L + 1);
 
                 while (true)
                 {
@@ -608,7 +602,7 @@ namespace CSLPQ
                 static_assert(is_printable<K>::value, "Key type must be printable");
                 static_assert(is_printable<V>::value, "Value type must be printable");
                 std::stringstream ss;
-                uint32_t max = all_levels? this->max_level : 0;
+                uint32_t max = all_levels? L : 0;
                 for (uint32_t level = 0; level <= max; ++level)
                 {
                     if (all_levels)

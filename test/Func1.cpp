@@ -4,7 +4,7 @@
 
 int main()
 {
-    CSLPQ::KVQueue<uint64_t, void*> queue(8);
+    CSLPQ::KVQueue<uint64_t, void*, 8> queue;
     while (true)
     {
         uint64_t key;
